@@ -1,11 +1,12 @@
 import sqlite3
+import sys
 from contextlib import closing
 from pathlib import Path
 import csv
 from typing import List, Tuple, Callable, Iterable, Union, Dict, Optional
-import re
 
-import nltk
+
+from ru_sent_tokenize import ru_sent_tokenize
 from nltk import word_tokenize
 import pandas as pd
 
@@ -13,241 +14,6 @@ TAG_OUTER = 'O'
 
 NE5_dataset = Path('/data/NER/VectorX/NE5_train')
 # NE5_dataset = Path('/data/NER/Academic Datasets/NE5/Collection5')
-
-
-_POPULAR_SHORTENINGS = re.compile(r'\b(ул|тел|корп|зам|им|руб|коп|адм|обл|тыс|эт|сан|барр)\.$', re.IGNORECASE)
-_HAS_DOT_INSIDE = re.compile(r'[\w]+\.[\w]+\.$', re.IGNORECASE)
-_INITIALS = re.compile(r'\b[А-Я]{1,4}\.$')
-_ONLY_CONSONANTS = re.compile(r'\b[бвгджзйклмнпрстфхцчшщ]{1,4}\.$', re.IGNORECASE)
-def loose_sent_tokenize(text: str):
-    sentences = []
-    sents = nltk.sent_tokenize(text)
-    si = 0
-    processed_index = 0
-    sent_start = 0
-    while si < len(sents):
-        s = sents[si]
-        span_start = text[processed_index:].index(s) + processed_index
-        span_end = span_start + len(s)
-        processed_index += len(s)
-
-        if _POPULAR_SHORTENINGS.search(s):
-            pass
-        elif _ONLY_CONSONANTS.search(s):
-            pass
-        elif _INITIALS.search(s):
-            pass
-        elif _HAS_DOT_INSIDE.search(s):
-            pass
-        else:
-            if not text[sent_start: span_end].strip():
-                print('empty!')
-            sentences.append(text[sent_start: span_end].strip())
-            sent_start = span_end
-            processed_index = span_end
-
-        si += 1
-
-
-    if sent_start != len(text):
-        if text[sent_start:].strip():
-            sentences.append(text[sent_start:].strip())
-    return sentences
-
-text = '''Что это такое?
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
-
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
-
- 
- 
- 
- 
- 
- 
- Не пропусти ни одной новости – подписывайся на новый сервис от 24 канала
- Что это такое?
- 
- Оперативно о самом главном – сервис "Важно!" от 24 канала
- Что это такое?
- 
- Узнавай первым о самом главном
- Что это такое?
- 
- Мгновенные сообщения о главных новостях мира
- Что это такое?
- 
- Будь в курсе событий в стране и мире – подписывайся на сервис "Важно!"
- Что это такое?
- 
- 
- Подписаться
- 
- 
- 
-
- 
- 
- 
- 
- 
- 
- Читай главные новости мира в Viber
- Что это такое?
- 
- 24 канал теперь в Viber. Подписывайся на наш паблик-аккаунт!
- Что это такое?
- 
- Все новости всегда под рукой. Чат 24 канала в Viber
- Что это такое?
- 
- Усі новини завжди під рукою. Чат 24 каналу у Viber
- Что это такое?
- 
- Удобная доставка новостей в Viber
- Что это такое?
- 
- Читай новости от 24 канала в Viber
- Что это такое?
- 
- Лаконично и оперативно – новости 24 канала в Viber
- Что это такое?
- 
- 
- Подписаться
- 
- 
- 
-
- 
- 
- 
- 
- 
- 
-
- Самые главные новости в твоем Мессенджере. Присоединяйся!
- Что это такое?
- 
- Удобная доставка новостей от бота 24 канала
- Что это такое?
- 
- "Привет! Для тебя новость". Бот 24 канала в мессенджер
- Что это такое?
- 
- Твой вопрос – наша новость. Бот 24 канала
- Что это такое?
- 
- Испытай возможности новостного бота 24 канала
- Что это такое?
- 
- Есть ли новости, о которых он не знает? Бот от 24 канала
- Что это такое?
- 
-
- 
- Подписаться
- 
- 
- 
-
- 
- 
- 
- 
- 
- 
-
- Самые главные новости в твоем Мессенджере. Присоединяйся!
- Что это такое?
- 
- Удобная доставка новостей от бота 24 канала
- Что это такое?
- 
- "Привет! Для тебя новость". Бот 24 канала в мессенджер
- Что это такое?
- 
- Твой вопрос – наша новость. Бот 24 канала
- Что это такое?
- 
- Испытай возможности новостного бота 24 канала
- Что это такое?
- 
- Есть ли новости, о которых он не знает? Бот от 24 канала
- Что это такое?
- 
-
- 
- Подписаться
- 
- 
- 
-
-
-
-
-
-
-
-
- На железнодорожном вокзале в Киеве известная украинская писательница Лариса Ницой стала свидетелем одной довольно интересной сцены, когда маленький мальчик удивленно отреагировал на железнодорожное сообщение между Украиной и страной-агрессором Россией.
- 
-Об этом она написала на своей странице в Facebook. 
-
-"Киев. Железнодорожный вокзал. К центральному залу заходит папа за руку с небольшим сыном. Кого-то встречают. Ищут взглядом табло. По всему видно, сынок уже умеет читать. Прочитав верхние две строчки, ребенок округляет глаза, его лицо удлиняется, он подается весь вперед, вырывает руку с папиной руки и показывает на табло: "А это что-о-о-о-о-о-о ?! – вскрикивает он. – У нас на Москву позда-а-а-а ходят?!!" – отметила писательница. 
-Читайте также: Политик объяснил, почему нельзя прекращать железнодорожное сообщение с Россией 
-
-По ее словам, к такой реакции ребенка не остались равнодушными посетители вокзала. 
-
-"На него оглядывается полвокзала. Немая сцена. Занавес", – добавила Ницой. 
- 
- 
- 
-Напомним, в конце мая российские СМИ сообщили, что Украина планирует окончательно приостановить железнодорожное сообщение с Россией. Однако министр инфрастурктуры Владимир Омелян впоследствии заметил, что в Кабмине пока такой вопрос не рассматривался.
- 
-
-
-
- 
- Теги:
- Новости Украины 
- Новости политики 
- Несовершеннолетние 
- Дети 
- Укрзализниця 
- железная дорога 
- Новости России 
- Украина – Россия'''
-
-print(loose_sent_tokenize(text))
-
-
-assert len(loose_sent_tokenize('купил за 5 руб. и остался доволен.')) == 1
-assert len(loose_sent_tokenize('Я ему сказал и т.к. он не послушался за 500р.')) == 1
-assert len(loose_sent_tokenize('Ура. Ура. 500р.')) == 3
-assert len(loose_sent_tokenize('И.П. Павлов.')) == 1
-assert len(loose_sent_tokenize('И. П. Павлов.')) == 1
-assert len(loose_sent_tokenize('Я ему сказал: "Чтобы ничего не трогал." Но он не послушался.')) == 2
-assert len(loose_sent_tokenize('Нефть за $27/барр. не снится.')) == 1
 
 
 def get_charspans(text: str, tokenizer_or_words: Union[Callable[[str], List[str]], List[str]],
@@ -284,9 +50,7 @@ def split_sentences_preserve_tags(text: str,
                                   tags_with_spans: Iterable[Tuple[str, int, int, str]],
                                   sentence_tokenizer: Callable[[str], Iterable[str]]):
     tags_with_spans = sorted(tags_with_spans, key=lambda x: x[1])  # excess
-    sents = sentence_tokenizer(text)
-    if min(len(s) for s in sents) == 0:
-        print('123')
+    sents = [s for s in sentence_tokenizer(text) if s.strip()]
     sents_span = get_charspans(text, sents)
 
     per_sentence_tags = []
@@ -299,7 +63,8 @@ def split_sentences_preserve_tags(text: str,
 
         for tag, t_start, t_end, value in tags_with_spans:
             if s_start <= t_start <= s_end:
-                assert s_start <= t_end <= s_end, 'Entity is in two sentences'
+                if not (s_start <= t_end <= s_end):
+                    raise RuntimeError('Entity is in two sentences in %s' % text)
                 assert s[t_start - s_start: t_end - s_start] == value, 'Tag value does not equal to sent spans'
                 sent_tags.append((tag, t_start - s_start, t_end - s_start, value))
         per_sentence_tags.append((s, sent_tags))
@@ -386,7 +151,7 @@ def slurp_unsupervised_data(text: str,
                             dataset_name: str='',
                             sentence_tokenizer: Optional[Callable[[str], str]]=None):
     if sentence_tokenizer is None:
-        sentence_tokenizer = loose_sent_tokenize
+        sentence_tokenizer = ru_sent_tokenize
 
     with closing(conn.cursor()) as c:
         for order, s in enumerate(sentence_tokenizer(text)):
@@ -415,7 +180,7 @@ def slurp_NE5_annotated_data(folder_path, dataset_name: str = ''):
                     annotations.append((tag, int(start_index), int(end_index), tag_value))
 
             try:
-                st = split_sentences_preserve_tags(text, annotations, loose_sent_tokenize)
+                st = split_sentences_preserve_tags(text, annotations, ru_sent_tokenize)
 
                 for order, (s, stags) in enumerate(st):
                     _add_sentence(c, article_id, order, s, dataset_name, stags)
@@ -426,8 +191,8 @@ def slurp_NE5_annotated_data(folder_path, dataset_name: str = ''):
                     #     c.execute('INSERT INTO tags(sentence_id, start_index, end_index, tag) VALUES (?, ?, ?, ?)',
                     #               (s_id, ss, se, st))
                 conn.commit()
-            except Exception as ex:
-                print(f'Exception "{ex}" for file {text_fn}')
+            except RuntimeError as ex:
+                print(f'Exception "{ex}" for file {text_fn}', file=sys.stderr)
                 # print(sent_tokenize(text))
                 # print('='*80)
 
