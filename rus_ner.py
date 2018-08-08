@@ -163,7 +163,6 @@ def slurp_NE5_annotated_data(folder_path, dataset_name: str = ''):
     all_texts = []
     with closing(conn.cursor()) as c:
         for ann_fn in NE5_dataset.glob('*.ann'):
-            #     ann_fn = Path('/data/NER/VectorX/NE5_train/82180290.ann')
             article_id = ann_fn.name[:-len('.ann')]
             text_fn = Path(str(ann_fn)[:-len('.ann')] + '.txt')
 
@@ -250,6 +249,12 @@ def get_supervised_data(dataset_name='',
 
 def _replace_nan(ax: list, with_value):
     return [with_value if a is None else a for a in ax]
+
+
+def query(sql: str):
+    with closing(conn.cursor()) as c:
+        r = c.execute(sql)
+        return r.fetchall()
 
 
 def get_data_as_pandas():
